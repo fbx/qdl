@@ -70,7 +70,7 @@ static xmlNode *firehose_response_parse(const void *buf, size_t len, int *error)
 
 	doc = xmlReadMemory(buf, len, NULL, NULL, 0);
 	if (!doc) {
-		fprintf(stderr, "failed to parse firehose packet\n");
+		warnx("failed to parse firehose packet");
 		*error = -EINVAL;
 		return NULL;
 	}
@@ -84,7 +84,7 @@ static xmlNode *firehose_response_parse(const void *buf, size_t len, int *error)
 	}
 
 	if (!node) {
-		fprintf(stderr, "firehose packet without data tag\n");
+		warnx("firehose packet without data tag");
 		*error = -EINVAL;
 		xmlFreeDoc(doc);
 		return NULL;
@@ -144,22 +144,21 @@ static int firehose_read(int fd, int timeout, int (*response_parser)(xmlNode *no
 		}
 		buf[n] = '\0';
 
-		if (qdl_debug)
-			fprintf(stderr, "FIREHOSE READ: %s\n", buf);
+		dbg("FIREHOSE READ: %s\n", buf);
 
 		msg = buf;
 		for (msg = buf; msg[0]; msg = end) {
 			end = strstr(msg, "</data>");
 			if (!end) {
-				fprintf(stderr, "firehose response truncated\n");
-				exit(1);
+				warnx("firehose response truncated");
+				return -EINVAL;
 			}
 
 			end += strlen("</data>");
 
 			nodes = firehose_response_parse(msg, end - msg, &error);
 			if (!nodes) {
-				fprintf(stderr, "unable to parse response\n");
+				warnx("unable to parse response");
 				return error;
 			}
 
@@ -168,7 +167,7 @@ static int firehose_read(int fd, int timeout, int (*response_parser)(xmlNode *no
 					firehose_response_log(node);
 				} else if (xmlStrcmp(node->name, (xmlChar*)"response") == 0) {
 					if (!response_parser)
-						fprintf(stderr, "received response with no parser\n");
+						warnx("received response with no parser");
 					else
 						ret = response_parser(node);
 					done = true;
@@ -191,8 +190,7 @@ static int firehose_write(int fd, xmlDoc *doc)
 
 	xmlDocDumpMemory(doc, &s, &len);
 
-	if (qdl_debug)
-		fprintf(stderr, "FIREHOSE WRITE: %s\n", s);
+	dbg("FIREHOSE WRITE: %s\n", s);
 
 	ret = write(fd, s, len);
 	saved_errno = errno;
@@ -309,10 +307,7 @@ static int firehose_configure(int fd, bool skip_storage_init)
 		max_payload_size = ret;
 	}
 
-	if (qdl_debug) {
-		fprintf(stderr, "[CONFIGURE] max payload size: %ld\n",
-			max_payload_size);
-	}
+	dbg("[CONFIGURE] max payload size: %ld\n", max_payload_size);
 
 	return 0;
 }
@@ -344,9 +339,8 @@ static int firehose_program(int usbfd, struct program *program, int fd)
 	num_sectors = (sb.st_size + program->sector_size - 1) / program->sector_size;
 
 	if (program->num_sectors && num_sectors > program->num_sectors) {
-		fprintf(stderr, "[PROGRAM] %s truncated to %d\n",
-			program->label,
-			program->num_sectors * program->sector_size);
+		warnx("[PROGRAM] %s truncated to %d", program->label,
+		      program->num_sectors * program->sector_size);
 		num_sectors = program->num_sectors;
 	}
 
@@ -368,13 +362,13 @@ static int firehose_program(int usbfd, struct program *program, int fd)
 
 	ret = firehose_write(usbfd, doc);
 	if (ret < 0) {
-		fprintf(stderr, "[PROGRAM] failed to write program command\n");
+		warnx("[PROGRAM] failed to write program command");
 		goto out;
 	}
 
 	ret = firehose_read(usbfd, -1, firehose_nop_parser);
 	if (ret) {
-		fprintf(stderr, "[PROGRAM] failed to setup programming\n");
+		warnx("[PROGRAM] failed to setup programming");
 		goto out;
 	}
 
@@ -406,15 +400,14 @@ static int firehose_program(int usbfd, struct program *program, int fd)
 
 	ret = firehose_read(usbfd, -1, firehose_nop_parser);
 	if (ret) {
-		fprintf(stderr, "[PROGRAM] failed\n");
+		warnx("[PROGRAM] failed");
 	} else if (t) {
-		fprintf(stderr,
-			"[PROGRAM] flashed \"%s\" successfully at %ldkB/s\n",
-			program->label,
-			program->sector_size * num_sectors / t / 1024);
+		printf("[PROGRAM] flashed \"%s\" successfully at %ldkB/s\n",
+		       program->label,
+		       program->sector_size * num_sectors / t / 1024);
 	} else {
-		fprintf(stderr, "[PROGRAM] flashed \"%s\" successfully\n",
-			program->label);
+		printf("[PROGRAM] flashed \"%s\" successfully\n",
+		       program->label);
 	}
 
 out:
@@ -450,7 +443,7 @@ static int firehose_apply_patch(int fd, struct patch *patch)
 
 	ret = firehose_read(fd, -1, firehose_nop_parser);
 	if (ret)
-		fprintf(stderr, "[APPLY PATCH] %d\n", ret);
+		warnx("[APPLY PATCH] %d", ret);
 
 out:
 	xmlFreeDoc(doc);
@@ -473,7 +466,7 @@ static int firehose_send_single_tag(int usbfd, xmlNode *node){
 
         ret = firehose_read(usbfd, -1, firehose_nop_parser);
         if (ret) {
-                fprintf(stderr, "[UFS] %s err %d\n", __func__, ret);
+                warnx("[UFS] %s err %d", __func__, ret);
                 ret = -EINVAL;
         }
 
@@ -501,7 +494,7 @@ int firehose_apply_ufs_common(int fd, struct ufs_common *ufs)
 
 	ret = firehose_send_single_tag(fd, node_to_send);
 	if (ret)
-		fprintf(stderr, "[APPLY UFS common] %d\n", ret);
+		warnx("[APPLY UFS common] %d", ret);
 
 	return ret;
 }
@@ -528,7 +521,7 @@ int firehose_apply_ufs_body(int fd, struct ufs_body *ufs)
 
 	ret = firehose_send_single_tag(fd, node_to_send);
 	if (ret)
-		fprintf(stderr, "[APPLY UFS body] %d\n", ret);
+		warnx("[APPLY UFS body] %d", ret);
 
 	return ret;
 }
@@ -546,7 +539,7 @@ int firehose_apply_ufs_epilogue(int fd, struct ufs_epilogue *ufs,
 
 	ret = firehose_send_single_tag(fd, node_to_send);
 	if (ret)
-		fprintf(stderr, "[APPLY UFS epilogue] %d\n", ret);
+		warnx("[APPLY UFS epilogue] %d", ret);
 
 	return ret;
 }
@@ -572,7 +565,7 @@ static int firehose_set_bootable(int fd, int part)
 
 	ret = firehose_read(fd, -1, firehose_nop_parser);
 	if (ret) {
-		fprintf(stderr, "failed to mark partition %d as bootable\n", part);
+		warnx("failed to mark partition %d as bootable", part);
 		return -1;
 	}
 
@@ -642,7 +635,7 @@ int firehose_run(int fd)
 
 	bootable = program_find_bootable_partition();
 	if (bootable < 0)
-		fprintf(stderr, "no boot partition found\n");
+		printf("no boot partition found\n");
 	else
 		firehose_set_bootable(fd, bootable);
 

@@ -28,6 +28,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include <err.h>
 #include <errno.h>
 #include <string.h>
 #include <libxml/parser.h>
@@ -70,7 +71,7 @@ int patch_load(const char *patch_file)
 
 	doc = xmlReadFile(patch_file, NULL, 0);
 	if (!doc) {
-		fprintf(stderr, "[PATCH] failed to parse %s\n", patch_file);
+		warnx("[PATCH] failed to parse %s", patch_file);
 		return -EINVAL;
 	}
 
@@ -80,7 +81,7 @@ int patch_load(const char *patch_file)
 			continue;
 
 		if (xmlStrcmp(node->name, (xmlChar*)"patch")) {
-			fprintf(stderr, "[PATCH] unrecognized tag \"%s\", ignoring\n", node->name);
+			warnx("[PATCH] unrecognized tag \"%s\", ignoring", node->name);
 			continue;
 		}
 
@@ -98,7 +99,7 @@ int patch_load(const char *patch_file)
 		patch->what = attr_as_string(node, "what", &errors);
 
 		if (errors) {
-			fprintf(stderr, "[PATCH] errors while parsing patch\n");
+			warnx("[PATCH] errors while parsing patch");
 			free(patch);
 			continue;
 		}

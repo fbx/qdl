@@ -90,8 +90,8 @@ static void sahara_hello(int fd, struct sahara_pkt *pkt)
 
 	assert(pkt->length == 0x30);
 
-	printf("HELLO version: 0x%x compatible: 0x%x max_len: %d mode: %d\n",
-	       pkt->hello_req.version, pkt->hello_req.compatible, pkt->hello_req.max_len, pkt->hello_req.mode);
+	dbg("HELLO version: 0x%x compatible: 0x%x max_len: %d mode: %d\n",
+	    pkt->hello_req.version, pkt->hello_req.compatible, pkt->hello_req.max_len, pkt->hello_req.mode);
 
 	resp.cmd = 2;
 	resp.length = 0x30;
@@ -142,8 +142,8 @@ static void sahara_read(int fd, struct sahara_pkt *pkt, const char *mbn)
 
 	assert(pkt->length == 0x14);
 
-	printf("READ image: %d offset: 0x%x length: 0x%x\n",
-	       pkt->read_req.image, pkt->read_req.offset, pkt->read_req.length);
+	dbg("READ image: %d offset: 0x%x length: 0x%x\n",
+	    pkt->read_req.image, pkt->read_req.offset, pkt->read_req.length);
 
 	ret = sahara_read_common(fd, mbn, pkt->read_req.offset, pkt->read_req.length);
 	if (ret < 0)
@@ -156,8 +156,8 @@ static void sahara_read64(int fd, struct sahara_pkt *pkt, const char *mbn)
 
 	assert(pkt->length == 0x20);
 
-	printf("READ64 image: %d offset: 0x%lx length: 0x%lx\n",
-	       pkt->read64_req.image, pkt->read64_req.offset, pkt->read64_req.length);
+	dbg("READ64 image: %d offset: 0x%lx length: 0x%lx\n",
+	    pkt->read64_req.image, pkt->read64_req.offset, pkt->read64_req.length);
 
 	ret = sahara_read_common(fd, mbn, pkt->read64_req.offset, pkt->read64_req.length);
 	if (ret < 0)
@@ -170,10 +170,10 @@ static void sahara_eoi(int fd, struct sahara_pkt *pkt)
 
 	assert(pkt->length == 0x10);
 
-	printf("END OF IMAGE image: %d status: %d\n", pkt->eoi.image, pkt->eoi.status);
+	dbg("END OF IMAGE image: %d status: %d\n", pkt->eoi.image, pkt->eoi.status);
 
 	if (pkt->eoi.status != 0) {
-		printf("received non-successful result\n");
+		warnx("received non-successful result");
 		return;
 	}
 
@@ -186,7 +186,7 @@ static int sahara_done(int fd, struct sahara_pkt *pkt)
 {
 	assert(pkt->length == 0xc);
 
-	printf("DONE status: %d\n", pkt->done_resp.status);
+	dbg("DONE status: %d\n", pkt->done_resp.status);
 
 	return pkt->done_resp.status;
 }
@@ -219,7 +219,7 @@ int sahara_run(int fd, char *prog_mbn)
 
 		pkt = (struct sahara_pkt*)buf;
 		if (n != pkt->length) {
-			fprintf(stderr, "length not matching");
+			warnx("packet length not matching");
 			return -EINVAL;
 		}
 

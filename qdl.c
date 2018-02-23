@@ -71,7 +71,7 @@ static int detect_type(const char *xml_file)
 
 	doc = xmlReadFile(xml_file, NULL, 0);
 	if (!doc) {
-		fprintf(stderr, "[PATCH] failed to parse %s\n", xml_file);
+		warnx("[PATCH] failed to parse %s\n", xml_file);
 		return -EINVAL;
 	}
 

@@ -27,6 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include <assert.h>
+#include <err.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -53,7 +54,7 @@ static const char notice_bconfigdescrlock[] = "\n"
 "	bConfigDescrLock = 1 AND provide command line parameter --finalize-provisioning.\n\n"
 "	Unless you intend to lock your device, please set bConfigDescrLock = 0 in your XML\n"
 "	and don't use command line parameter --finalize-provisioning.\n\n"
-"In case of mismatch between CL and XML provisioning is not performed.\n\n";
+"In case of mismatch between CL and XML provisioning is not performed.\n";
 
 // ToDo: These 2 functions must be moved to a common module (refactoring required)
 static unsigned attr_as_unsigned(xmlNode *node, const char *attr, int *errors)
@@ -106,7 +107,7 @@ struct ufs_common *ufs_parse_common_params(xmlNode *node, bool finalize_provisio
 	result->bConfigDescrLock = !!attr_as_unsigned(node, "bConfigDescrLock", &errors);
 
 	if (errors) {
-		fprintf(stderr, "[UFS] errors while parsing common\n");
+		warnx("[UFS] errors while parsing common");
 		free(result);
 		return NULL;
 	}
@@ -135,7 +136,7 @@ struct ufs_body *ufs_parse_body(xmlNode *node)
 	result->desc = attr_as_string(node, "desc", &errors);
 
 	if (errors) {
-		fprintf(stderr, "[UFS] errors while parsing body\n");
+		warnx("[UFS] errors while parsing body");
 		free(result);
 		return NULL;
 	}
@@ -152,7 +153,7 @@ struct ufs_epilogue *ufs_parse_epilogue(xmlNode *node)
 	result->LUNtoGrow = attr_as_unsigned(node, "LUNtoGrow", &errors);
 
 	if (errors) {
-		fprintf(stderr, "[UFS] errors while parsing epilogue\n");
+		warnx("[UFS] errors while parsing epilogue");
 		free(result);
 		return NULL;
 	}
@@ -168,15 +169,14 @@ int ufs_load(const char *ufs_file, bool finalize_provisioning)
 	struct ufs_body *ufs_body_tmp;
 
 	if (ufs_common_p) {
-		fprintf(stderr,
-			"Only one UFS provisioning XML allowed, %s ignored\n",
-			ufs_file);
+		warnx("Only one UFS provisioning XML allowed, %s ignored",
+		      ufs_file);
 		return -EEXIST;
 	}
 
 	doc = xmlReadFile(ufs_file, NULL, 0);
 	if (!doc) {
-		fprintf(stderr, "[UFS] failed to parse %s\n", ufs_file);
+		warnx("[UFS] failed to parse %s", ufs_file);
 		return -EINVAL;
 	}
 
@@ -187,8 +187,8 @@ int ufs_load(const char *ufs_file, bool finalize_provisioning)
 			continue;
 
 		if (xmlStrcmp(node->name, (xmlChar*)"ufs")) {
-			fprintf(stderr, "[UFS] unrecognized tag \"%s\", ignoring\n",
-				node->name);
+			warnx("[UFS] unrecognized tag \"%s\", ignoring",
+			      node->name);
 			continue;
 		}
 
@@ -198,15 +198,13 @@ int ufs_load(const char *ufs_file, bool finalize_provisioning)
 					finalize_provisioning);
 			}
 			else {
-				fprintf(stderr, "[UFS] Only one common tag is allowed\n"
-					"[UFS] provisioning aborted\n");
+				warnx("[UFS] Only one common tag is allowed");
 				retval = -EINVAL;
 				break;
 			}
 
 			if (!ufs_common_p) {
-				fprintf(stderr, "[UFS] Common tag corrupted\n"
-					"[UFS] provisioning aborted\n");
+				warnx("[UFS] Common tag corrupted");
 				retval = -EINVAL;
 				break;
 			}
@@ -223,8 +221,7 @@ int ufs_load(const char *ufs_file, bool finalize_provisioning)
 				}
 			}
 			else {
-				fprintf(stderr, "[UFS] LU tag corrupted\n"
-					"[UFS] provisioning aborted\n");
+				warnx("[UFS] LU tag corrupted");
 				retval = -EINVAL;
 				break;
 			}
@@ -235,22 +232,19 @@ int ufs_load(const char *ufs_file, bool finalize_provisioning)
 					continue;
 			}
 			else {
-				fprintf(stderr, "[UFS] Only one finalizing tag is allowed\n"
-					"[UFS] provisioning aborted\n");
+				warnx("[UFS] Only one finalizing tag is allowed");
 				retval = -EINVAL;
 				break;
 			}
 
 			if (!ufs_epilogue_p) {
-				fprintf(stderr, "[UFS] Finalizing tag corrupted\n"
-					"[UFS] provisioning aborted\n");
+				warnx("[UFS] Finalizing tag corrupted");
 				retval = -EINVAL;
 				break;
 			}
 
 		} else {
-			fprintf(stderr, "[UFS] Unknown tag or %s corrupted\n"
-				"[UFS] provisioning aborted\n", ufs_file);
+			warnx("[UFS] Unknown tag or %s corrupted", ufs_file);
 			retval = -EINVAL;
 			break;
 		}
@@ -259,8 +253,7 @@ int ufs_load(const char *ufs_file, bool finalize_provisioning)
 	xmlFreeDoc(doc);
 
 	if (!retval && (!ufs_common_p || !ufs_body_p || !ufs_epilogue_p)) {
-		fprintf(stderr, "[UFS] %s seems to be incomplete\n"
-			"[UFS] provisioning aborted\n", ufs_file);
+		warnx("[UFS] %s seems to be incomplete", ufs_file);
 		retval = -EINVAL;
 	}
 
@@ -274,15 +267,13 @@ int ufs_load(const char *ufs_file, bool finalize_provisioning)
 		if (ufs_epilogue_p) {
 			free(ufs_epilogue_p);
 		}
-		fprintf(stderr, "[UFS] %s seems to be corrupted, ignore\n", ufs_file);
+		warnx("[UFS] %s seems to be corrupted, ignore", ufs_file);
 		return retval;
 	}
 	if (!finalize_provisioning != !ufs_common_p->bConfigDescrLock) {
-		fprintf(stderr,
-			"[UFS] Value bConfigDescrLock %d in file %s don't match command line parameter --finalize-provisioning %d\n"
-			"[UFS] provisioning aborted\n",
+		warnx("[UFS] Value bConfigDescrLock %d in file %s don't match command line parameter --finalize-provisioning %d",
 			ufs_common_p->bConfigDescrLock, ufs_file, finalize_provisioning);
-		fprintf(stderr, notice_bconfigdescrlock);
+		warnx(notice_bconfigdescrlock);
 		return -EINVAL;
 	}
 	return 0;
@@ -317,8 +308,7 @@ int ufs_provisioning_execute(int usbfd,
 	}
 	ret = apply_ufs_epilogue(usbfd, ufs_epilogue_p, false);
 	if (!ret) {
-		fprintf(stderr,
-			"UFS provisioning impossible, provisioning XML may be corrupted\n");
+		warnx("UFS provisioning impossible, provisioning XML may be corrupted\n");
 		return ret;
 	}
 

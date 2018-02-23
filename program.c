@@ -28,6 +28,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
@@ -86,7 +87,7 @@ int program_load(const char *program_file)
 
 	doc = xmlReadFile(program_file, NULL, 0);
 	if (!doc) {
-		fprintf(stderr, "[PROGRAM] failed to parse %s\n", program_file);
+		warnx("[PROGRAM] failed to parse %s", program_file);
 		return -EINVAL;
 	}
 
@@ -96,7 +97,7 @@ int program_load(const char *program_file)
 			continue;
 
 		if (xmlStrcmp(node->name, (xmlChar*)"program")) {
-			fprintf(stderr, "[PROGRAM] unrecognized tag \"%s\", ignoring\n", node->name);
+			warnx("[PROGRAM] unrecognized tag \"%s\", ignoring", node->name);
 			continue;
 		}
 
@@ -116,7 +117,7 @@ int program_load(const char *program_file)
 		program->start_sector = attr_as_string(node, "start_sector", &errors);
 
 		if (errors) {
-			fprintf(stderr, "[PROGRAM] errors while parsing program\n");
+			warnx("[PROGRAM] errors while parsing program");
 			free(program);
 			continue;
 		}

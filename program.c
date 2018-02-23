@@ -148,7 +148,7 @@ int program_execute(int usbfd, int (*apply)(int usbfd, struct program *program, 
 
 		fd = open(program->filename, O_RDONLY);
 		if (fd < 0) {
-			printf("Unable to open %s...ignoring\n", program->filename);
+			warn("Unable to open %s", program->filename);
 			continue;
 		}
 

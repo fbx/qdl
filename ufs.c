@@ -297,6 +297,8 @@ int ufs_provisioning_execute(int usbfd,
 		printf("\n");
 	}
 
+	printf("[UFS] Provisioning device (dry run)...\n");
+
 	// Just ask a target to check the XML w/o real provisioning
 	ret = apply_ufs_common(usbfd, ufs_common_p);
 	if (ret)
@@ -311,6 +313,8 @@ int ufs_provisioning_execute(int usbfd,
 		warnx("UFS provisioning impossible, provisioning XML may be corrupted\n");
 		return ret;
 	}
+
+	printf("[UFS] Provisioning device...\n");
 
 	// Real provisioning -- target didn't refuse a given XML
 	ret = apply_ufs_common(usbfd, ufs_common_p);

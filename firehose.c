@@ -101,7 +101,7 @@ static void firehose_response_log(xmlNode *node)
 	xmlChar *value;
 
 	value = xmlGetProp(node, (xmlChar*)"value");
-	printf("LOG: %s\n", value);
+	dbg("LOG: %s", value);
 }
 
 static int firehose_wait(int fd, int timeout)
@@ -422,7 +422,7 @@ static int firehose_apply_patch(int fd, struct patch *patch)
 	xmlDoc *doc;
 	int ret;
 
-	printf("%s\n", patch->what);
+	printf("[PATCH] %s\n", patch->what);
 
 	doc = xmlNewDoc((xmlChar*)"1.0");
 	root = xmlNewNode(NULL, (xmlChar*)"data");
@@ -635,7 +635,7 @@ int firehose_run(int fd)
 
 	bootable = program_find_bootable_partition();
 	if (bootable < 0)
-		printf("no boot partition found\n");
+		printf("boot partition not found, skip setting bootable partition\n");
 	else
 		firehose_set_bootable(fd, bootable);
 

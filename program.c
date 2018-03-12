@@ -37,7 +37,8 @@
 #include <libxml/tree.h>
 
 #include "program.h"
-		
+#include "qdl.h"
+
 static struct program *programes;
 static struct program *programes_last;
 
@@ -135,7 +136,7 @@ int program_load(const char *program_file)
 
 	return 0;
 }
-	
+
 int program_execute(int usbfd, int (*apply)(int usbfd, struct program *program, int fd))
 {
 	struct program *program;
@@ -146,7 +147,7 @@ int program_execute(int usbfd, int (*apply)(int usbfd, struct program *program, 
 		if (!program->filename)
 			continue;
 
-		fd = open(program->filename, O_RDONLY);
+		fd = open_in_search_path(program->filename, O_RDONLY);
 		if (fd < 0) {
 			warn("Unable to open %s", program->filename);
 			continue;

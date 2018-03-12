@@ -9,6 +9,7 @@
 int firehose_run(int fd);
 int sahara_run(int fd, char *prog_mbn);
 void print_hex_dump(const char *prefix, const void *buf, size_t len);
+int open_in_search_path(const char *filename, int flags);
 
 #define dbg(fmt, ...) do {			\
 	if (qdl_debug)				\

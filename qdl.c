@@ -61,6 +61,7 @@ enum {
 };
 
 bool qdl_debug;
+const char **qdl_search_path;
 
 static int detect_type(const char *xml_file)
 {
@@ -216,6 +217,38 @@ retry:
 	return fd;
 }
 
+int open_in_search_path(const char *filename, int flags)
+{
+	const char **d;
+	char path[PATH_MAX];
+	int fd;
+	int ret;
+
+	for (d = qdl_search_path; *d; d++) {
+		ret = snprintf(path, sizeof (path), "%s/%s", *d, filename);
+		if (ret < 0 || ret >= sizeof (path))
+			continue;
+
+		fd = open(path, flags);
+		if (fd != -1)
+			return fd;
+	}
+
+	return -1;
+}
+
+static void add_search_path(const char *path)
+{
+	int n = 0;
+
+	while (qdl_search_path && qdl_search_path[n])
+		n++;
+
+	qdl_search_path = realloc(qdl_search_path, (n + 2) * sizeof (char *));
+	qdl_search_path[n] = path;
+	qdl_search_path[n + 1] = NULL;
+}
+
 static void print_usage(void)
 {
 	extern const char *__progname;
@@ -234,20 +267,23 @@ int main(int argc, char **argv)
 	int opt;
 	bool qdl_finalize_provisioning = false;
 
-
 	static struct option options[] = {
 		{"debug", no_argument, 0, 'd'},
 		{"finalize-provisioning", no_argument, 0, 'l'},
+		{"search-path", required_argument, 0, 's'},
 		{0, 0, 0, 0}
 	};
 
-	while ((opt = getopt_long(argc, argv, "d", options, NULL )) != -1) {
+	while ((opt = getopt_long(argc, argv, "ds", options, NULL )) != -1) {
 		switch (opt) {
 		case 'd':
 			qdl_debug = true;
 			break;
 		case 'l':
 			qdl_finalize_provisioning = true;
+			break;
+		case 's':
+			add_search_path(optarg);
 			break;
 		default:
 			print_usage();
@@ -262,6 +298,10 @@ int main(int argc, char **argv)
 	}
 
 	prog_mbn = argv[optind++];
+
+	/* default to cwd as search path */
+	if (!qdl_search_path)
+		add_search_path(".");
 
 	do {
 		type = detect_type(argv[optind]);

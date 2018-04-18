@@ -191,6 +191,15 @@ static int sahara_done(int fd, struct sahara_pkt *pkt)
 	return pkt->done_resp.status;
 }
 
+static void sahara_reset(int fd)
+{
+	struct sahara_pkt reset;
+
+	reset.cmd = 0x13;
+	reset.length = 8;
+	write(fd, &reset, reset.length);
+}
+
 int sahara_run(int fd, char *prog_mbn)
 {
 	struct sahara_pkt *pkt;
@@ -203,7 +212,12 @@ int sahara_run(int fd, char *prog_mbn)
 	while (!done) {
 		pfd.fd = fd;
 		pfd.events = POLLIN;
-		n = poll(&pfd, 1, -1);
+		n = poll(&pfd, 1, 1000);
+		if (n == 0) {
+			sahara_reset(fd);
+			continue;
+		}
+
 		if (n < 0) {
 			warn("failed to poll");
 			break;
@@ -215,6 +229,11 @@ int sahara_run(int fd, char *prog_mbn)
 		} else if (n < 0) {
 			warn("failed to read");
 			break;
+		}
+
+		if (n > 5 && !strncmp(buf, "<?xml", 5)) {
+			warnx("target in firehose mode, needs reset");
+			return -1;
 		}
 
 		pkt = (struct sahara_pkt*)buf;

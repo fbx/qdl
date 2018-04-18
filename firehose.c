@@ -101,7 +101,7 @@ static void firehose_response_log(xmlNode *node)
 	xmlChar *value;
 
 	value = xmlGetProp(node, (xmlChar*)"value");
-	dbg("LOG: %s", value);
+	printf("[LOG] %s\n", value);
 }
 
 static int firehose_wait(int fd, int timeout)
@@ -573,7 +573,7 @@ static int firehose_set_bootable(int fd, int part)
 	return 0;
 }
 
-static int firehose_reset(int fd)
+int firehose_reset(int fd)
 {
 	xmlNode *root;
 	xmlNode *node;
@@ -595,9 +595,8 @@ static int firehose_reset(int fd)
 	return firehose_read(fd, -1, firehose_nop_parser);
 }
 
-int firehose_run(int fd)
+int firehose_init(int fd)
 {
-	int bootable;
 	int ret;
 
 	ret = firehose_wait(fd, 10000);
@@ -607,11 +606,47 @@ int firehose_run(int fd)
 	while (firehose_read(fd, 100, NULL) != -ETIMEDOUT)
 		;
 
-	ret = firehose_nop(fd);
+	return 0;
+}
+
+int firehose_get_storage_info(int fd, int part)
+{
+	xmlNode *root;
+	xmlNode *node;
+	xmlDoc *doc;
+	int ret;
+
+	ret = firehose_configure(fd, false);
 	if (ret)
 		return ret;
 
-	if(ufs_need_provisioning()) {
+	doc = xmlNewDoc((xmlChar*)"1.0");
+	root = xmlNewNode(NULL, (xmlChar*)"data");
+	xmlDocSetRootElement(doc, root);
+
+	node = xmlNewChild(root, NULL, (xmlChar*)"getstorageinfo", NULL);
+	xml_setpropf(node, "physical_partition_number", "%d", part);
+
+	ret = firehose_write(fd, doc);
+	xmlFreeDoc(doc);
+	if (ret < 0)
+		return ret;
+
+	ret = firehose_read(fd, -1, firehose_nop_parser);
+	if (ret) {
+		warnx("failed to mark partition %d as bootable", part);
+		return -1;
+	}
+
+	return 0;
+}
+
+int firehose_provision(int fd)
+{
+	int bootable;
+	int ret;
+
+	if (ufs_need_provisioning()) {
 		ret = firehose_configure(fd, true);
 		if (ret)
 			return ret;

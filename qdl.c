@@ -61,6 +61,7 @@ enum {
 };
 
 bool qdl_debug;
+bool qdl_get_info;
 const char **qdl_search_path;
 
 static int detect_type(const char *xml_file)
@@ -266,9 +267,11 @@ int main(int argc, char **argv)
 	int fd;
 	int opt;
 	bool qdl_finalize_provisioning = false;
+	bool qdl_get_info = false;
 
 	static struct option options[] = {
 		{"debug", no_argument, 0, 'd'},
+		{"info", no_argument, 0, 'i'},
 		{"finalize-provisioning", no_argument, 0, 'l'},
 		{"search-path", required_argument, 0, 's'},
 		{0, 0, 0, 0}
@@ -278,6 +281,9 @@ int main(int argc, char **argv)
 		switch (opt) {
 		case 'd':
 			qdl_debug = true;
+			break;
+		case 'i':
+			qdl_get_info = true;
 			break;
 		case 'l':
 			qdl_finalize_provisioning = true;
@@ -291,19 +297,18 @@ int main(int argc, char **argv)
 		}
 	}
 
-	/* at least 2 non optional args required */
-	if ((optind + 2) > argc) {
+	if ((optind + 1) > argc) {
 		print_usage();
 		return 1;
 	}
 
-	prog_mbn = argv[optind++];
+	prog_mbn = argv[optind];
 
 	/* default to cwd as search path */
 	if (!qdl_search_path)
 		add_search_path(".");
 
-	do {
+	while (++optind < argc) {
 		type = detect_type(argv[optind]);
 		if (type < 0 || type == QDL_FILE_UNKNOWN)
 			errx(1, "failed to detect file type of %s\n", argv[optind]);
@@ -328,7 +333,7 @@ int main(int argc, char **argv)
 			errx(1, "%s type not yet supported", argv[optind]);
 			break;
 		}
-	} while (++optind < argc);
+	}
 
 	fd = tty_open(&tios);
 	if (fd < 0)
@@ -338,7 +343,21 @@ int main(int argc, char **argv)
 	if (ret < 0)
 		goto out;
 
-	ret = firehose_run(fd);
+	ret = firehose_init(fd);
+	if (ret < 0)
+		goto out;
+
+	if (qdl_get_info) {
+		ret = firehose_get_storage_info(fd, 65210);
+		if (ret < 0)
+			goto out;
+	} else {
+		ret = firehose_provision(fd);
+		if (ret < 0)
+			goto out;
+
+		firehose_reset(fd);
+	}
 
 out:
 	ret = tcsetattr(fd, TCSANOW, &tios);

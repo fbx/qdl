@@ -355,8 +355,6 @@ int main(int argc, char **argv)
 		ret = firehose_provision(fd);
 		if (ret < 0)
 			goto out;
-
-		firehose_reset(fd);
 	}
 
 out:

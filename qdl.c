@@ -191,6 +191,10 @@ retry:
 
 	fd = open(path, O_RDWR | O_NOCTTY | O_EXCL);
 	if (fd < 0) {
+		if (errno == EACCES) {
+			sleep(1);
+			goto retry;
+		}
 		err(1, "unable to open \"%s\"", path);
 	}
 

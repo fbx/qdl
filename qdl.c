@@ -102,13 +102,13 @@ static int detect_type(const char *xml_file)
 	return type;
 }
 
-static int readat(int dir, const char *name, char *buf, size_t len)
+static int read_file(const char *name, char *buf, size_t len)
 {
 	ssize_t n;
 	int fd;
 	int ret = 0;
 
-	fd = openat(dir, name, O_RDONLY);
+	fd = open(name, O_RDONLY);
 	if (fd < 0)
 		return fd;
 
@@ -129,51 +129,45 @@ close_fd:
 
 static int find_qdl_tty(char *dev_name, size_t dev_name_len)
 {
+	const char tty_path[] = "/sys/class/tty";
 	struct dirent *de;
 	int found = -ENOENT;
+	char path[PATH_MAX];
 	char vid[5];
 	char pid[5];
 	DIR *dir;
-	int tty;
-	int fd;
 	int ret;
 
-	tty = open("/sys/class/tty", O_DIRECTORY);
-	if (tty < 0)
-		err(1, "failed to open /sys/class/tty");
-
-	dir = fdopendir(tty);
+	dir = opendir(tty_path);
 	if (!dir)
-		err(1, "failed to opendir /sys/class/tty");
+		err(1, "failed to opendir %s", tty_path);
 
 	while ((de = readdir(dir)) != NULL) {
 		if (strncmp(de->d_name, "ttyUSB", 6) != 0)
 			continue;
 
-		fd = openat(tty, de->d_name, O_DIRECTORY);
-		if (fd < 0)
+		snprintf(path, sizeof (path), "%s/%s/../../../../idVendor",
+			 tty_path, de->d_name);
+
+		ret = read_file(path, vid, sizeof(vid));
+		if (ret < 0)
 			continue;
 
-		ret = readat(fd, "../../../../idVendor", vid, sizeof(vid));
-		if (ret < 0)
-			goto close_fd;
+		snprintf(path, sizeof (path), "%s/%s/../../../../idProduct",
+			 tty_path, de->d_name);
 
-		ret = readat(fd, "../../../../idProduct", pid, sizeof(pid));
+		ret = read_file(path, pid, sizeof(pid));
 		if (ret < 0)
-			goto close_fd;
+			continue;
 
 		if (strcmp(vid, "05c6") || strcmp(pid, "9008"))
-			goto close_fd;
+			continue;
 
 		snprintf(dev_name, dev_name_len, "/dev/%s", de->d_name);
 		found = 0;
-
-close_fd:
-		close(fd);
 	}
 
 	closedir(dir);
-	close(tty);
 
 	return found;
 

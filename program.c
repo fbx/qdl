@@ -181,7 +181,7 @@ int program_find_bootable_partition(void)
 	for (program = programes; program; program = program->next) {
 		label = program->label;
 
-		if (!strcmp(label, "xbl") || !strcmp(label, "sbl1")) {
+		if (!strcmp(label, "xbl1") || !strcmp(label, "sbl1")) {
 			if (part != -ENOENT)
 				return -EINVAL;
 

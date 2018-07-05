@@ -48,7 +48,8 @@ static unsigned attr_as_unsigned(xmlNode *node, const char *attr, int *errors)
 
 	value = xmlGetProp(node, (xmlChar*)attr);
 	if (!value) {
-		(*errors)++;
+		if (errors)
+			(*errors)++;
 		return 0;
 	}
 
@@ -61,7 +62,8 @@ static const char *attr_as_string(xmlNode *node, const char *attr, int *errors)
 
 	value = xmlGetProp(node, (xmlChar*)attr);
 	if (!value) {
-		(*errors)++;
+		if (errors)
+			(*errors)++;
 		return NULL;
 	}
 
@@ -77,7 +79,8 @@ static bool attr_as_bool(xmlNode *node, const char *attr, int *errors)
 
 	value = xmlGetProp(node, (xmlChar*)attr);
 	if (!value) {
-		(*errors)++;
+		if (errors)
+			(*errors)++;
 		return false;
 	}
 
@@ -114,13 +117,13 @@ int program_load(const char *program_file)
 
 		program->sector_size = attr_as_unsigned(node, "SECTOR_SIZE_IN_BYTES", &errors);
 		program->file_offset = attr_as_unsigned(node, "file_sector_offset", &errors);
-		program->filename = attr_as_string(node, "filename", &errors);
+		program->filename = attr_as_string(node, "filename", NULL);
 		program->label = attr_as_string(node, "label", &errors);
 		program->num_sectors = attr_as_unsigned(node, "num_partition_sectors", &errors);
 		program->partition = attr_as_unsigned(node, "physical_partition_number", &errors);
-		program->size = attr_as_unsigned(node, "size_in_KB", &errors);
-		program->sparse = attr_as_bool(node, "sparse", &errors);
-		program->start_bytes = attr_as_string(node, "start_byte_hex", &errors);
+		program->size = attr_as_unsigned(node, "size_in_KB", NULL);
+		program->sparse = attr_as_bool(node, "sparse", NULL);
+		program->start_bytes = attr_as_string(node, "start_byte_hex", NULL);
 		program->start_sector = attr_as_string(node, "start_sector", &errors);
 
 		if (errors) {

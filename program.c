@@ -47,8 +47,10 @@ static unsigned attr_as_unsigned(xmlNode *node, const char *attr, int *errors)
 	xmlChar *value;	
 
 	value = xmlGetProp(node, (xmlChar*)attr);
-	if (!value)
+	if (!value) {
 		(*errors)++;
+		return 0;
+	}
 
 	return strtoul((char*)value, NULL, 10);
 }
@@ -58,8 +60,10 @@ static const char *attr_as_string(xmlNode *node, const char *attr, int *errors)
 	xmlChar *value;	
 
 	value = xmlGetProp(node, (xmlChar*)attr);
-	if (!value)
+	if (!value) {
 		(*errors)++;
+		return NULL;
+	}
 
 	if (value && value[0] == '\0')
 		return NULL;
@@ -72,8 +76,10 @@ static bool attr_as_bool(xmlNode *node, const char *attr, int *errors)
 	xmlChar *value;	
 
 	value = xmlGetProp(node, (xmlChar*)attr);
-	if (!value)
+	if (!value) {
 		(*errors)++;
+		return false;
+	}
 
 	return xmlStrcmp(value, (xmlChar*)"true") == 0;
 }
@@ -118,7 +124,7 @@ int program_load(const char *program_file)
 		program->start_sector = attr_as_string(node, "start_sector", &errors);
 
 		if (errors) {
-			warnx("[PROGRAM] errors while parsing program");
+			warnx("[PROGRAM] errors while parsing program %s", program_file);
 			free(program);
 			continue;
 		}

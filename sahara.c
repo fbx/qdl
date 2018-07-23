@@ -213,6 +213,7 @@ int sahara_run(int fd, char *prog_mbn)
 	while (!done) {
 		pfd.fd = fd;
 		pfd.events = POLLIN;
+		pfd.revents = 0;
 		n = poll(&pfd, 1, timeout);
 
 		if (n < 0) {
@@ -224,6 +225,11 @@ int sahara_run(int fd, char *prog_mbn)
 			sahara_reset(fd);
 			timeout = -1;
 			continue;
+		}
+
+		if (pfd.revents & POLLERR) {
+			warnx("target was reset");
+			return -1;
 		}
 
 		n = read(fd, buf, sizeof(buf));

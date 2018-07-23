@@ -111,11 +111,17 @@ static int firehose_wait(int fd, int timeout)
 
 	pfd.fd = fd;
 	pfd.events = POLLIN;
+	pfd.revents = 0;
 	ret = poll(&pfd, 1, timeout);
 	if (ret == 0)
 		return -ETIMEDOUT;
 
-	return ret < 0 ? ret : 0;;
+	if (pfd.revents & POLLERR) {
+		warnx("target was reset");
+		return -EIO;
+	}
+
+	return ret < 0 ? ret : 0;
 }
 
 static int firehose_read(int fd, int timeout, int (*response_parser)(xmlNode *node))

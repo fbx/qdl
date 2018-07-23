@@ -207,20 +207,23 @@ int sahara_run(int fd, char *prog_mbn)
 	char buf[4096];
 	char tmp[32];
 	bool done = false;
+	int timeout = 100;
 	int n;
 
 	while (!done) {
 		pfd.fd = fd;
 		pfd.events = POLLIN;
-		n = poll(&pfd, 1, 1000);
-		if (n == 0) {
-			sahara_reset(fd);
-			continue;
-		}
+		n = poll(&pfd, 1, timeout);
 
 		if (n < 0) {
 			warn("failed to poll");
-			break;
+			return -1;
+		}
+
+		if (n == 0) {
+			sahara_reset(fd);
+			timeout = -1;
+			continue;
 		}
 
 		n = read(fd, buf, sizeof(buf));

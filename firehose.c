@@ -674,7 +674,5 @@ int firehose_provision(int fd)
 	else
 		firehose_set_bootable(fd, bootable);
 
-	firehose_reset(fd);
-
 	return 0;
 }

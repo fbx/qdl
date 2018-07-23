@@ -251,31 +251,47 @@ static void add_search_path(const char *path)
 static void print_usage(void)
 {
 	extern const char *__progname;
-	fprintf(stderr,
-		"%s [--debug] [--finalize-provisioning] <prog.mbn> [<program> <patch> ...]\n",
+	fprintf(stderr, "usage: %s OPTS [PROGRAM|PATCH...]\n"
+		"Send commands to a Qualcomm device using the firehose protocol.\n"
+		"  OPTS can be:\n"
+		"  -d, --debug             verbose output\n"
+		"  -l, --load ELF          load programmer file using SAHARA protocol\n"
+		"  -r, --reset             reset target before exiting\n"
+		"  -f, --finalize          finalize provisioning of UFS (WARNING: irreversible)\n"
+		"  -s, --search-path DIR   add directory to image search path\n",
 		__progname);
 }
 
 int main(int argc, char **argv)
 {
 	struct termios tios;
-	char *prog_mbn;
+	char *prog_mbn = NULL;
 	int type;
-	int ret;
+	int ret = 0;
 	int fd;
 	int opt;
+	int n_progs = 0;
 	bool qdl_finalize_provisioning = false;
 	bool qdl_get_info = false;
+	bool qdl_reset = false;
 
 	static struct option options[] = {
 		{"debug", no_argument, 0, 'd'},
+		{"help", no_argument, 0, 'h'},
+		{"load", required_argument, 0, 'l'},
 		{"info", no_argument, 0, 'i'},
-		{"finalize-provisioning", no_argument, 0, 'l'},
+		{"reset", no_argument, 0, 'r'},
+		{"finalize", no_argument, 0, 'f'},
 		{"search-path", required_argument, 0, 's'},
 		{0, 0, 0, 0}
 	};
 
-	while ((opt = getopt_long(argc, argv, "ds", options, NULL )) != -1) {
+	if (argc < 2) {
+		print_usage();
+		return 1;
+	}
+
+	while ((opt = getopt_long(argc, argv, "dhl:ifs:", options, NULL )) != -1) {
 		switch (opt) {
 		case 'd':
 			qdl_debug = true;
@@ -283,83 +299,94 @@ int main(int argc, char **argv)
 		case 'i':
 			qdl_get_info = true;
 			break;
-		case 'l':
+		case 'f':
 			qdl_finalize_provisioning = true;
+			break;
+		case 'l':
+			prog_mbn = optarg;
+			break;
+		case 'r':
+			qdl_reset = true;
 			break;
 		case 's':
 			add_search_path(optarg);
 			break;
+		case 'h':
+			print_usage();
+			return 0;
 		default:
 			print_usage();
 			return 1;
 		}
 	}
 
-	if ((optind + 1) > argc) {
-		print_usage();
-		return 1;
-	}
-
-	prog_mbn = argv[optind];
-
 	/* default to cwd as search path */
 	if (!qdl_search_path)
 		add_search_path(".");
 
-	while (++optind < argc) {
-		type = detect_type(argv[optind]);
+	while (optind < argc) {
+		char *filename = argv[optind++];
+
+		type = detect_type(filename);
 		if (type < 0 || type == QDL_FILE_UNKNOWN)
-			errx(1, "failed to detect file type of %s\n", argv[optind]);
+			errx(1, "failed to detect file type of %s\n", filename);
 
 		switch (type) {
 		case QDL_FILE_PATCH:
-			ret = patch_load(argv[optind]);
+			ret = patch_load(filename);
 			if (ret < 0)
-				errx(1, "patch_load %s failed", argv[optind]);
+				errx(1, "patch_load %s failed", filename);
 			break;
 		case QDL_FILE_PROGRAM:
-			ret = program_load(argv[optind]);
+			ret = program_load(filename);
 			if (ret < 0)
-				errx(1, "program_load %s failed", argv[optind]);
+				errx(1, "program_load %s failed", filename);
 			break;
 		case QDL_FILE_UFS:
-			ret = ufs_load(argv[optind],qdl_finalize_provisioning);
+			ret = ufs_load(filename, qdl_finalize_provisioning);
 			if (ret < 0)
-				errx(1, "ufs_load %s failed", argv[optind]);
+				errx(1, "ufs_load %s failed", filename);
 			break;
 		default:
-			errx(1, "%s type not yet supported", argv[optind]);
+			errx(1, "%s type not yet supported", filename);
 			break;
 		}
+		n_progs++;
 	}
 
 	fd = tty_open(&tios);
 	if (fd < 0)
 		err(1, "failed to open QDL tty");
 
-	ret = sahara_run(fd, prog_mbn);
-	if (ret < 0)
-		goto out;
+	if (prog_mbn) {
+		ret = sahara_run(fd, prog_mbn);
+		if (ret < 0)
+			goto out;
 
-	ret = firehose_init(fd);
-	if (ret < 0)
-		goto out;
+		ret = firehose_init(fd);
+		if (ret < 0)
+			goto out;
+	}
 
 	if (qdl_get_info) {
 		ret = firehose_get_storage_info(fd, 65210);
 		if (ret < 0)
 			goto out;
-	} else {
+	}
+
+	if (n_progs > 0) {
 		ret = firehose_provision(fd);
 		if (ret < 0)
 			goto out;
 	}
 
 out:
-	ret = tcsetattr(fd, TCSANOW, &tios);
-	if (ret < 0)
+	if (qdl_reset)
+		firehose_reset(fd);
+
+	if (tcsetattr(fd, TCSANOW, &tios) < 0)
 		warn("unable to restore tios of ttyUSB1");
 	close(fd);
 
-	return 0;
+	return ret ? 1 : 0;
 }

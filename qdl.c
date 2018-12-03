@@ -384,7 +384,7 @@ out:
 		firehose_reset(fd);
 
 	if (tcsetattr(fd, TCSANOW, &tios) < 0)
-		warn("unable to restore tios of ttyUSB1");
+		warn("unable to restore tios of tty");
 	close(fd);
 
 	return ret ? 1 : 0;
